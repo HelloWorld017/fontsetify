@@ -1,0 +1,25 @@
+{
+	"groupBy": [
+		"ideograph-frequency",
+		"ideograph-strokes",
+		"hangul-2350-11172",
+		"unicode-blocks",
+		"all"
+	],
+	"chunkSize": 2048,
+	"chunkOverGroups": true,
+	"weightByFileName": {
+		"black": 900,
+		"extrabold": 800,
+		"bold": 700,
+		"semibold": 600,
+		"medium": 500,
+		"regular": 400,
+		"medium": 400,
+		"semilight": 300,
+		"demilight": 300,
+		"light": 200,
+		"extralight": 100,
+		"hairline": 100
+	}
+}
