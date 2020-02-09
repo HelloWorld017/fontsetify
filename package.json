@@ -4,6 +4,7 @@
   "description": "Font Subsetting done right",
   "main": "src/index.js",
   "scripts": {
+    "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -22,14 +23,12 @@
   },
   "homepage": "https://github.com/HelloWorld017/fontsetify#readme",
   "dependencies": {
-    "dedent": "^0.7.0",
     "fontkit": "^1.8.0",
     "iconv-lite": "^0.5.1",
+    "outdent": "^0.7.0",
     "promisepipe": "^3.0.0",
     "signale": "^1.4.0",
     "ttf2eot": "^2.0.0",
-    "ttf2svg": "^1.2.0",
-    "ttf2woff": "^2.0.1",
-    "ttf2woff2": "^3.0.0"
+    "ttf2svg": "^1.2.0"
   }
 }

@@ -1,14 +1,14 @@
-const dedent = require('dedent');
+const childProcess = require('child_process');
 const fontkit = require('fontkit');
 const fs = require('fs');
 const groups = require('./groups');
 const signale = require('signale');
 const ttf2eot = require('ttf2eot');
 const ttf2svg = require('ttf2svg');
-const ttf2woff = require('ttf2woff');
-const ttf2woff2 = require('ttf2woff2');
+const outdent = require('outdent');
 const path = require('path');
 const promisePipe = require('promisepipe');
+const { promisify } = require('util');
 
 const init = async () => {
 	let initSuccess = true;
@@ -54,33 +54,53 @@ const stylesheet = [];
 const indexes = {};
 const emitFont = async (config, font, chars) => {
 	if(chars.length === 0) return;
-	if(!indexes[font])
-		indexes[font] = 0;
+	if(!indexes[font.fileName])
+		indexes[font.fileName] = 0;
 
 	const basename = path.basename(font.fileName, path.extname(font.fileName));
-	const filename = `${basename}_${indexes[font]}`;
-	const target = path.resolve('./output/', `${filename}`);
+	const filename = `${basename}_${indexes[font.fileName]}`;
+	const target = `./output/${filename}`;
 
-	const subset = font.createSubset();
-	const glyphs = chars.map(char => font.glyphForCodePoint(char.codePointAt(0)));
-	glyphs.forEach(glyph => subset.includeGlyph(glyph));
+	await fs.promises.writeFile(`${target}_glyphs.txt`, chars.join(''));
 
-	await promisePipe(
-		subset.encodeStream(),
-		fs.createWriteStream(`${target}.ttf`)
-	);
+	const escapeShell = arg => `"${arg.replace(/"/g, `\\"`)}"`;
+
+	const args = [
+		'pyftsubset',
+		escapeShell(`./fonts/${font.fileName}`),
+		`--text-file=${escapeShell(`${target}_glyphs.txt`)}`,
+		`--layout-features='*'`,
+		`--symbol-cmap`,
+		`--drop-tables=`,
+		`--recommended-glyphs`
+	];
+
+	const exec = promisify(childProcess.exec);
+
+	await exec(args.concat([
+		`--output-file=${escapeShell(`${target}.ttf`)}`
+	]).join(' '));
+
+	await exec(args.concat([
+		`--flavor="woff"`,
+		`--with-zopfli`,
+		`--output-file=${escapeShell(`${target}.woff`)}`
+	]).join(' '));
+
+	await exec(args.concat([
+		`--flavor="woff2"`,
+		`--output-file=${escapeShell(`${target}.woff2`)}`
+	]).join(' '));
 
 	const ttfBuffer = await fs.promises.readFile(`${target}.ttf`);
 	await fs.promises.writeFile(`${target}.eot`, ttf2eot(ttfBuffer));
 	await fs.promises.writeFile(`${target}.svg`, ttf2svg(ttfBuffer));
-	await fs.promises.writeFile(`${target}.woff`, ttf2woff(ttfBuffer));
-	await fs.promises.writeFile(`${target}.woff2`, ttf2woff2(ttfBuffer));
 
 	let weight = null;
 	const weightKey = Object.keys(config.weightByFileName)
 		.find(weightName => font.fileName.toLowerCase().replace(/[^a-z]/g, '').includes(weightName));
 
-	if(!weightKey)
+	if(weightKey)
 		weight = config.weightByFileName[weightKey];
 
 	const range = [];
@@ -106,18 +126,21 @@ const emitFont = async (config, font, chars) => {
 		}
 	}
 
-	stylesheet.push(dedent`
+	stylesheet.push(outdent`
 		@font-face {
-			font-family: "${font.familyName}",
+			font-family: "${font.familyName}";
 			src: url('${target}.eot?#iefix') format('embedded-opentype'),
 				url('${target}.woff') format('woff'),
 				url('${target}.woff2') format('woff2'),
 				url('${target}.svg') format('svg'),
-				url('$[target}.ttf') format('truetype');
+				url('${target}.ttf') format('truetype');
 			${weight ? `font-weight: ${weight};` : ''}
 			unicode-range: ${range.join(', ')};
 		}
 	`);
+
+	signale.info(`Emit ${font.familyName} [${indexes[font.fileName]}]`);
+	indexes[font.fileName]++;
 };
 
 const processFont = async (config, font, usingGroups) => {
@@ -134,6 +157,8 @@ const processFont = async (config, font, usingGroups) => {
 					groups[groupKey] = [];
 
 				groups[groupKey].push(charStr);
+
+				return;
 			}
 		}
 	});
@@ -143,7 +168,7 @@ const processFont = async (config, font, usingGroups) => {
 		const group = groups[groupName];
 
 		for(let i = 0; i < group.length; i += config.chunkSize) {
-			const groupChars = group.slice(i, config.chunkSize);
+			const groupChars = group.slice(i, i + config.chunkSize);
 
 			if(groupChars.length < config.chunkSize) {
 				if(config.chunkOverGroups) {
@@ -155,6 +180,12 @@ const processFont = async (config, font, usingGroups) => {
 			await emitFont(config, font, groupChars);
 		}
 	}
+
+	for(let i = 0; i < leftChars.length; i += config.chunkSize) {
+		await emitFont(config, font, leftChars.slice(i, i + config.chunkSize));
+	}
+
+	signale.success(`Transformed ${font.familyName} info ${indexes[font.fileName]} chunks.`);
 };
 
 (async () => {
@@ -187,7 +218,6 @@ const processFont = async (config, font, usingGroups) => {
 
 	for(const font in fonts) {
 		await processFont(config, fonts[font], usingGroups);
-		signale.success(`Processed ${font.fullName}`);
 	}
 
 	await fs.promises.writeFile(

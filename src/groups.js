@@ -25,11 +25,38 @@ const parseIdeographStrokes = async () => {
 	};
 };
 
+const parseJouyouKanji = async () => {
+	const kJoyoKanjiRaw = await fs.promises.readFile('./assets/unihan/kJoyoKanji.json', 'utf8');
+	const kJoyoKanji = JSON.parse(kJoyoKanji);
+
+	return char => {
+		if(kJoyoKanji[char])
+			return 0;
+
+		return null;
+	};
+}
+
 const parseHangul = async () => {
 	const ksX1001 = await fs.promises.readFile('./assets/ksx1001.txt', 'utf8');
 
 	return char => {
-		if(ksX1001.indexOf(char) > 0)
+		if(ksX1001.includes(char))
+			return 0;
+
+		if(/^[가-힣]$/.test(char))
+			return 1;
+
+		return null;
+	};
+};
+
+const parseHangul2574 = async () => {
+	const ksX1001 = await fs.promises.readFile('./assets/ksx1001.txt', 'utf8');
+	const additional224 = await fs.promises.readFile('./assets/hangul-additional-224.txt', 'utf8');
+
+	return char => {
+		if(ksX1001.includes(char) || additional224.includes(char))
 			return 0;
 
 		if(/^[가-힣]$/.test(char))
@@ -65,7 +92,9 @@ const parseUnicodeBlocks = async () => {
 const groups = {
 	'ideograph-frequency': parseIdeographFrequency,
 	'ideograph-strokes': parseIdeographStrokes,
+	'ideograph-jouyou': parseJouyouKanji,
 	'hangul-2350': parseHangul,
+	'hangul-2574': parseHangul2574,
 	'unicode-blocks': parseUnicodeBlocks,
 	'all': async () => char => 0
 };
