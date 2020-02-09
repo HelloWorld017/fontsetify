@@ -38,7 +38,7 @@ const parseJouyouKanji = async () => {
 }
 
 const parseHangul = async () => {
-	const ksX1001 = await fs.promises.readFile('./assets/ksx1001.txt', 'utf8');
+	const ksX1001 = (await fs.promises.readFile('./assets/ksx1001.txt', 'utf8')).trim();
 
 	return char => {
 		if(ksX1001.includes(char))
@@ -52,8 +52,8 @@ const parseHangul = async () => {
 };
 
 const parseHangul2574 = async () => {
-	const ksX1001 = await fs.promises.readFile('./assets/ksx1001.txt', 'utf8');
-	const additional224 = await fs.promises.readFile('./assets/hangul-additional-224.txt', 'utf8');
+	const ksX1001 = (await fs.promises.readFile('./assets/ksx1001.txt', 'utf8')).trim();
+	const additional224 = (await fs.promises.readFile('./assets/hangul-additional-224.txt', 'utf8')).trim();
 
 	return char => {
 		if(ksX1001.includes(char) || additional224.includes(char))
